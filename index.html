@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Ogre Hammer Demo - Vercel Ready</title>
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<style>
+  body { margin:0; font-family: system-ui, Arial, sans-serif; background: linear-gradient(#cfeaff,#eaf7ff); display:flex; align-items:center; justify-content:center; height:100vh; }
+  .wrap { width:760px; text-align:center; }
+  canvas { width:760px; height:480px; background: linear-gradient(#a7d8ff, #e9f7ff); border-radius:12px; display:block; margin:0 auto; box-shadow:0 8px 20px rgba(0,0,0,0.12); }
+  .credit { font-size:13px; color:#333; margin-top:8px; }
+  .credit a{ color:#0b66c3; text-decoration:none; }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <canvas id="canvas" width="760" height="480"></canvas>
+    <div class="credit">
+      Ogre image and Hammer image by <a href="https://www.vecteezy.com" target="_blank">Vecteezy</a> (attribution required)
+    </div>
+  </div>
+
+  <!-- sound (remote hosted) -->
+  <audio id="hitSound" preload="auto">
+    <source src="https://actions.google.com/sounds/v1/impacts/wood_impact_1.mp3" type="audio/mpeg">
+    <source src="https://actions.google.com/sounds/v1/impacts/wood_impact_1.ogg" type="audio/ogg">
+  </audio>
+
+<script>
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+
+const ogreImg = new Image();
+const hammerImg = new Image();
+const rockImg = null; // rock drawn procedurally
+
+ogreImg.src = 'vecteezy_magical-ogre-boy-with-a-cheerful-personality_55667960.png';
+hammerImg.src = 'vecteezy_hammer-isolated-on-transparent_44448938.png';
+
+const hitSound = document.getElementById('hitSound');
+
+let ogre = {
+  x: 380, y: 330, width: 220, height: 220,
+  idleOffset: 0, idleDir: 1,
+  state: 'idle', // idle, moving, striking
+  hammerAngle: -0.45, // radians
+  hammerPivot: { x: 460, y: 360 } // pivot in canvas coords (approx)
+};
+
+let rock = { x: 380, y: 380, radiusX: 60, radiusY:28, cracked:false, crackProgress:0 };
+
+let swinging = false;
+let swingStart = 0;
+const swingDownTime = 1000; // ms
+const swingUpTime = 1200; // ms
+const maxAngle = Math.PI * 0.7; // 126deg
+
+// audio unlock for browsers
+document.addEventListener('click', function unlockAudio() {
+  hitSound.play().then(()=>{ hitSound.pause(); hitSound.currentTime=0; }).catch(()=>{});
+  document.removeEventListener('click', unlockAudio);
+});
+
+// wait images
+let ogreLoaded=false, hammerLoaded=false;
+ogreImg.onload = ()=>{ ogreLoaded=true; draw(); };
+hammerImg.onload = ()=>{ hammerLoaded=true; draw(); };
+
+// helper easing
+function easeIn(t){ return t*t; }
+function easeOut(t){ return 1 - Math.pow(1-t, 2); }
+
+function drawScene() {
+  // sky & ground handled by CSS background, draw ground strip
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+
+  // distant ground
+  ctx.fillStyle = '#e8f6ea';
+  ctx.fillRect(0, 360, canvas.width, 120);
+
+  // draw rock with texture and kanji (sample)
+  drawRock(rock);
+
+  // draw ogre (image) centered at ogre.x,ogre.y
+  if (ogreLoaded) {
+    const w = ogre.width, h = ogre.height;
+    ctx.drawImage(ogreImg, ogre.x - w/2, ogre.y - h/2, w, h);
+  } else {
+    // fallback simple ogre
+    ctx.fillStyle='#6db24a';
+    ctx.beginPath(); ctx.ellipse(ogre.x, ogre.y, 40, 50, 0,0,Math.PI*2); ctx.fill();
+  }
+
+  // draw hammer (rotated around pivot)
+  if (hammerLoaded) {
+    ctx.save();
+    // compute pivot relative to current ogre positions (hand)
+    const pivotX = ogre.hammerPivot.x;
+    const pivotY = ogre.hammerPivot.y;
+    ctx.translate(pivotX, pivotY);
+    ctx.rotate(ogre.hammerAngle);
+    ctx.translate(-pivotX, -pivotY);
+    // draw hammer image offset so that it looks attached to hand
+    const hx = pivotX - 40;
+    const hy = pivotY - 60;
+    ctx.drawImage(hammerImg, hx, hy, 140, 140);
+    ctx.restore();
+  }
+
+  // overlay score/labels
+  ctx.fillStyle='#222'; ctx.font='22px sans-serif'; ctx.textAlign='center';
+  ctx.fillText('Click to strike the rock', canvas.width/2, 40);
+}
+
+function drawRock(r) {
+  // shadow
+  ctx.fillStyle='rgba(0,0,0,0.12)';
+  ctx.beginPath(); ctx.ellipse(r.x, r.y+24, r.radiusX*0.9, r.radiusY*0.6, 0,0,Math.PI*2); ctx.fill();
+
+  // gradient stone
+  const grad = ctx.createLinearGradient(r.x-r.radiusX, r.y-r.radiusY, r.x+r.radiusX, r.y+r.radiusY);
+  grad.addColorStop(0,'#d9d9d9'); grad.addColorStop(0.5,'#c4c4c4'); grad.addColorStop(1,'#b5b5b5');
+  ctx.fillStyle=grad;
+  ctx.beginPath(); ctx.ellipse(r.x, r.y, r.radiusX, r.radiusY, 0,0,Math.PI*2); ctx.fill();
+
+  // speckles
+  ctx.fillStyle='rgba(0,0,0,0.06)';
+  for (let i=0;i<12;i++){ ctx.beginPath(); ctx.arc(r.x - r.radiusX + Math.random()*(2*r.radiusX), r.y - r.radiusY + Math.random()*(2*r.radiusY), 1,0,Math.PI*2); ctx.fill(); }
+
+  // crack effect
+  if (r.cracked) {
+    ctx.strokeStyle='#5d3b2a';
+    ctx.lineWidth=2;
+    ctx.beginPath();
+    const cp = r.crackProgress;
+    ctx.moveTo(r.x - 10, r.y - 4);
+    ctx.lineTo(r.x - 10 + 30*cp, r.y + 6*cp);
+    ctx.lineTo(r.x + 6*cp, r.y + 20*cp);
+    ctx.stroke();
+  }
+
+  // kanji + kana (sample: fish)
+  ctx.fillStyle='#000'; ctx.font='22px sans-serif'; ctx.textAlign='center';
+  ctx.fillText('魚', r.x, r.y - 2);
+  ctx.font='16px sans-serif'; ctx.fillText('さかな', r.x, r.y + 18);
+}
+
+let lastTime=0;
+function animate(t) {
+  if (!lastTime) lastTime = t;
+  const dt = t - lastTime;
+  lastTime = t;
+
+  // idle sway
+  if (!swinging) {
+    ogre.idleOffset += ogre.idleDir * dt * 0.02;
+    if (ogre.idleOffset > 6 || ogre.idleOffset < -6) ogre.idleDir *= -1;
+    ogre.y = 330 + ogre.idleOffset;
+    drawScene();
+  } else {
+    // handle swinging phases
+    const phaseTime = t - swingStart;
+    if (phaseTime < swingDownTime) {
+      const p = Math.min(1, phaseTime / swingDownTime);
+      const eased = easeIn(p);
+      ogre.hammerAngle = -0.45 + eased * maxAngle;
+      // apply small forward lean
+      ogre.y = 330 + ogre.idleOffset + eased*6;
+      if (p > 0.95 && !rock.cracked) {
+        // sound and crack
+        try { hitSound.currentTime = 0; hitSound.play(); } catch(e){}
+        rock.cracked = true;
+      }
+    } else if (phaseTime < swingDownTime + swingUpTime) {
+      const p = Math.min(1, (phaseTime - swingDownTime) / swingUpTime);
+      const eased = easeOut(p);
+      ogre.hammerAngle = -0.45 + (1 - eased) * maxAngle;
+      if (p > 0.95) {
+        // reset
+        swinging = false;
+        rock.crackProgress = 1;
+      }
+    }
+    drawScene();
+  }
+
+  // animate crack growth
+  if (rock.cracked && rock.crackProgress < 1) rock.crackProgress += dt/400;
+
+  requestAnimationFrame(animate);
+}
+
+canvas.addEventListener('click', () => {
+  if (!swinging) {
+    swinging = true;
+    swingStart = performance.now();
+    rock.cracked = false;
+    rock.crackProgress = 0;
+  }
+});
+
+// start after images loaded (or immediately)
+requestAnimationFrame(animate);
+</script>
+</body>
+</html>
