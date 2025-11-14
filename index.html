@@ -1,423 +1,225 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Ogre Smash — Japanese Words</title>
+<meta charset="UTF-8" />
+<title>Ogre Smash Japanese</title>
 <style>
-  :root{--canvas-w:900px;--canvas-h:520px}
-  body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto, "Hiragino Kaku Gothic ProN", "Yu Gothic", "Noto Sans JP", Arial;display:flex;flex-direction:column;align-items:center;background:#e9f5ff;color:#1b1b1b}
-  h1{margin:18px 0 6px;font-size:20px}
-  .wrap{width:calc(var(--canvas-w) + 20px);max-width:98%}
-  canvas{display:block;background:linear-gradient(#bfe6ff,#eaf7ff);border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,0.12)}
-  .controls{display:flex;align-items:center;gap:12px;margin:10px 0}
-  .btn{padding:8px 12px;border-radius:8px;border:0;background:#2e8b57;color:white;cursor:pointer}
-  .score{font-size:16px}
-  .credit{font-size:12px;color:#444;margin-top:8px}
-  a.creditlink{color:#0b66c3;text-decoration:none}
-  .hint{font-size:13px;color:#333;margin-top:6px}
+    body {
+        margin: 0;
+        background: #d6ebff;
+        display: flex;
+        justify-content: center;
+        padding-top: 20px;
+    }
+    canvas {
+        background: linear-gradient(#cbe7ff, #e2ffe2);
+        border-radius: 20px;
+    }
 </style>
 </head>
 <body>
-  <h1>Ogre Smash — Match the English word with the Japanese rock</h1>
-  <div class="wrap" aria-live="polite">
-    <canvas id="gameCanvas" width="900" height="520"></canvas>
-    <div class="controls">
-      <div class="score">Score: <span id="score">0</span></div>
-      <button id="restart" class="btn">Restart</button>
-      <div style="flex:1"></div>
-      <div class="hint">Click a rock to have the Ogre walk to it and smash.</div>
-    </div>
-    <div class="credit">
-      Ogre & Hammer images by <a class="creditlink" href="https://www.vecteezy.com" target="_blank" rel="noopener">Vecteezy</a>
-    </div>
-  </div>
 
-  <!-- audio elements (include mp3 + ogg fallback) -->
-  <audio id="clack" preload="auto">
-    <source src="https://actions.google.com/sounds/v1/impacts/wood_impact_1.mp3" type="audio/mpeg">
-    <source src="https://actions.google.com/sounds/v1/impacts/wood_impact_1.ogg" type="audio/ogg">
-  </audio>
-  <audio id="wrong" preload="auto">
-    <source src="https://actions.google.com/sounds/v1/cartoon/clang_and_wobble.ogg" type="audio/ogg">
-    <source src="https://actions.google.com/sounds/v1/cartoon/clang_and_wobble.mp3" type="audio/mpeg">
-  </audio>
+<canvas id="gameCanvas" width="900" height="550"></canvas>
+
+<!-- Sound -->
+<audio id="clackSound" src="clack.mp3"></audio>
 
 <script>
-/* -------------------------
-   Game configuration & data
-   ------------------------- */
+// =====================================
+// Word List (Option B — Kanji + Hiragana, no parentheses)
+// =====================================
 const words = [
-  { english: "cow", kanji: "牛", kana: "うし" },
-  { english: "horse", kanji: "馬", kana: "うま" },
-  { english: "fish", kanji: "魚", kana: "さかな" },
-  { english: "shell", kanji: "貝", kana: "かい" },
-  { english: "Japanese", kanji: "日本語", kana: "にほんご" },
-  { english: "Chinese", kanji: "中国語", kana: "ちゅうごくご" },
-  { english: "English", kanji: "英語", kana: "えいご" },
-  { english: "newspaper", kanji: "新聞", kana: "しんぶん" },
-  { english: "book", kanji: "本", kana: "ほん" },
-  { english: "weather", kanji: "天気", kana: "てんき" },
-  { english: "rain", kanji: "雨", kana: "あめ" },
-  { english: "magazine", kanji: "", kana: "ざっし" },
-  { english: "desk", kanji: "", kana: "つくえ" },
-  { english: "chair", kanji: "", kana: "いす" },
-  { english: "clock", kanji: "時けい", kana: "とけい" },
-  { english: "cat", kanji: "", kana: "ねこ" },
-  { english: "dog", kanji: "犬", kana: "いぬ" },
-  { english: "bird", kanji: "鳥", kana: "とり" }
+    ["cow", "牛", "うし"], ["horse", "馬", "うま"], ["fish", "魚", "さかな"],
+    ["shell", "貝", "かい"], ["Japanese", "日本語", "にほんご"],
+    ["Chinese", "中国語", "ちゅうごくご"], ["English", "英語", "えいご"],
+    ["newspaper", "新聞", "しんぶん"], ["book", "本", "ほん"],
+    ["weather", "天気", "てんき"], ["rain", "雨", "あめ"],
+    ["magazine", "雑誌", "ざっし"], ["desk", "机", "つくえ"],
+    ["chair", "椅子", "いす"], ["clock", "時計", "とけい"],
+    ["cat", "猫", "ねこ"], ["dog", "犬", "いぬ"],
+    ["bird", "鳥", "とり"]
 ];
 
-const canvas = document.getElementById('gameCanvas');
-const ctx = canvas.getContext('2d');
-const scoreEl = document.getElementById('score');
-const restartBtn = document.getElementById('restart');
-const clack = document.getElementById('clack');
-const wrong = document.getElementById('wrong');
+// =====================================
+// Canvas Setup
+// =====================================
+const canvas = document.getElementById("gameCanvas");
+const ctx = canvas.getContext("2d");
+const clackSound = document.getElementById("clackSound");
 
-// Images (must exist in same folder on Vercel)
+// Ogre sprite
 const ogreImg = new Image();
+ogreImg.src = "vecteezy_ogre.png";
+
 const hammerImg = new Image();
-ogreImg.src = 'vecteezy_ogre.png';
-hammerImg.src = 'vecteezy_hammer.png';
+hammerImg.src = "vecteezy_hammer.png";
 
-// Game state
-let score = 0;
-let choices = []; // array of rock objects {kanji,kana,x,y,correct}
-let target = null; // the current target word object {english,kanji,kana}
+// Ogre position
 let ogre = {
-  x: canvas.width*0.5,
-  y: 330,
-  width: 220,
-  height: 220,
-  speed: 4,
-  state: 'idle', // idle, walkingTo, striking, returning
-  targetX: null,
-  hammerAngle: -0.45, // radians (initial)
-  hammerPivotRel: { x: 0.6, y: 0.75 } // relative pivot inside ogre image
+    x: canvas.width / 2 - 100,
+    y: canvas.height - 260
 };
-let hammerAnimating = false;
-let lastTime = 0;
 
-/* ------------------------
-   Utility helpers
-   ------------------------ */
-function randInt(n){ return Math.floor(Math.random()*n); }
-function shuffle(arr){
-  for(let i=arr.length-1;i>0;i--){
-    const j = Math.floor(Math.random()*(i+1));
-    [arr[i],arr[j]] = [arr[j],arr[i]];
-  }
+// =====================================
+// Rocks Setup
+// =====================================
+let rocks = [];
+const rockRadius = 70;
+
+// Randomly pick a word
+let currentWord = null;
+
+function pickNewWord() {
+    const pool = [...words];
+    currentWord = pool[Math.floor(Math.random() * pool.length)];
+
+    // correct answer:
+    const correctKanji = currentWord[1];
+    const correctHira = currentWord[2];
+
+    // pick 3 other wrong answers
+    const others = pool.filter(w => w !== currentWord)
+                       .sort(() => Math.random() - 0.5)
+                       .slice(0, 3);
+
+    const options = [...others, currentWord].sort(() => Math.random() - 0.5);
+
+    // place rocks
+    rocks = options.map((w, i) => ({
+        kanji: w[1],
+        hira: w[2],
+        x: 180 + i * 170,
+        y: canvas.height - 100,
+        radius: rockRadius,
+        shake: 0,
+        isCorrect: (w === currentWord)
+    }));
 }
 
-/* ------------------------
-   Word / choices generation
-   ------------------------ */
-function pickNewRound(){
-  // pick target
-  target = words[randInt(words.length)];
-  // build set: include target + 3 distractors (unique)
-  const pool = words.filter(w=>w!==target);
-  shuffle(pool);
-  const distractors = pool.slice(0,3);
-  const set = [target, ...distractors];
-  shuffle(set);
-  // place rocks evenly on ground
-  choices = [];
-  const left = 120, right = canvas.width - 120;
-  for (let i=0;i<4;i++){
-    const x = left + i*(right-left)/3;
-    const item = set[i];
-    choices.push({
-      english: item.english,
-      kanji: item.kanji || "",
-      kana: item.kana || "",
-      x: x,
-      y: 370,
-      radiusX: 68,
-      radiusY: 30,
-      life: 1,
-      cracked: false,
-      correct: item===target
+// =====================================
+// Draw Rocks
+// =====================================
+function drawRocks() {
+    rocks.forEach(rock => {
+        let offsetX = rock.shake !== 0 ? (Math.sin(Date.now() / 40) * 5) : 0;
+
+        // rock shape
+        ctx.fillStyle = "#ddd";
+        ctx.beginPath();
+        ctx.ellipse(rock.x + offsetX, rock.y, rock.radius, rock.radius * 0.6, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Kanji (big)
+        ctx.fillStyle = "black";
+        ctx.font = "bold 22px sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText(rock.kanji, rock.x + offsetX, rock.y - 5);
+
+        // Hiragana (small)
+        ctx.font = "14px sans-serif";
+        ctx.fillText(rock.hira, rock.x + offsetX, rock.y + 20);
     });
-  }
-  // reset ogre state to idle center
-  ogre.state = 'idle';
-  ogre.targetX = null;
-  hammerAnimating = false;
-  draw();
 }
 
-/* ------------------------
-   Drawing helpers
-   ------------------------ */
-function drawRock(w){
-  // shadow
-  ctx.fillStyle = 'rgba(0,0,0,0.12)';
-  ctx.beginPath();
-  ctx.ellipse(w.x, w.y + 18, w.radiusX*0.9, w.radiusY*0.6, 0, 0, Math.PI*2);
-  ctx.fill();
+// =====================================
+// Draw Ogre and Hammer
+// =====================================
+let hammerAngle = 0;    // 0 = up, positive = smash
+let hammerSmashing = false;
 
-  // stone gradient
-  const grad = ctx.createLinearGradient(w.x - w.radiusX, w.y - w.radiusY, w.x + w.radiusX, w.y + w.radiusY);
-  grad.addColorStop(0, '#d9d9d9');
-  grad.addColorStop(0.5, '#c4c4c4');
-  grad.addColorStop(1, '#b5b5b5');
-  ctx.fillStyle = grad;
-  ctx.beginPath();
-  ctx.ellipse(w.x, w.y, w.radiusX, w.radiusY, 0, 0, Math.PI*2);
-  ctx.fill();
+function drawOgre() {
+    // Ogre behind rocks
+    ctx.drawImage(ogreImg, ogre.x, ogre.y, 220, 260);
 
-  // speckles
-  ctx.fillStyle = 'rgba(0,0,0,0.06)';
-  for (let i=0;i<10;i++){
-    ctx.beginPath();
-    ctx.arc(w.x - w.radiusX + Math.random()*(2*w.radiusX), w.y - w.radiusY + Math.random()*(2*w.radiusY), 1, 0, Math.PI*2);
-    ctx.fill();
-  }
-
-  // cracked visual if any
-  if (w.cracked){
-    ctx.strokeStyle = '#5d3b2a';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(w.x - 8, w.y - 2);
-    ctx.lineTo(w.x - 8 + 24*w.life, w.y + 8*w.life);
-    ctx.lineTo(w.x + 6*w.life, w.y + 20*w.life);
-    ctx.stroke();
-  }
-
-  // text: Kanji (big) and kana (small) under it if kana present
-  ctx.fillStyle = '#000';
-  ctx.textAlign = 'center';
-  // decide text: if kanji present show kanji then kana small; else show kana only big
-  if (w.kanji && w.kanji.trim() !== ""){
-    ctx.font = '26px "Hiragino Kaku Gothic ProN", "Yu Gothic", "Noto Sans JP", sans-serif';
-    ctx.fillText(w.kanji, w.x, w.y - 4);
-    ctx.font = '14px "Hiragino Kaku Gothic ProN", "Yu Gothic", "Noto Sans JP", sans-serif';
-    ctx.fillText(w.kana, w.x, w.y + 16);
-  } else {
-    ctx.font = '26px "Hiragino Kaku Gothic ProN", "Yu Gothic", "Noto Sans JP", sans-serif';
-    ctx.fillText(w.kana, w.x, w.y + 6);
-  }
+    // Hammer (overlay)
+    ctx.save();
+    ctx.translate(ogre.x + 110, ogre.y + 130); // pivot point
+    ctx.rotate(hammerAngle);
+    ctx.drawImage(hammerImg, -20, -30, 120, 120);
+    ctx.restore();
 }
 
-function drawOgreAndHammer(){
-  // ogre image (centered at ogre.x, ogre.y)
-  if (ogreImg.complete && ogreImg.naturalWidth){
-    const w = ogre.width, h = ogre.height;
-    ctx.drawImage(ogreImg, ogre.x - w/2, ogre.y - h/2, w, h);
-    // hammer rotation around pivot point relative to ogre
-    if (hammerImg.complete && hammerImg.naturalWidth){
-      const pivotX = ogre.x - ogre.width/2 + ogre.width * ogre.hammerPivotRel.x;
-      const pivotY = ogre.y - ogre.height/2 + ogre.height * ogre.hammerPivotRel.y;
-      ctx.save();
-      ctx.translate(pivotX, pivotY);
-      ctx.rotate(ogre.hammerAngle);
-      ctx.translate(-pivotX, -pivotY);
-      // draw hammer offset so handle appears in hand
-      const hx = pivotX - 40;
-      const hy = pivotY - 90;
-      ctx.drawImage(hammerImg, hx, hy, 140, 140);
-      ctx.restore();
-    }
-  } else {
-    // fallback simple ogre shape
-    ctx.fillStyle = '#6db24a';
-    ctx.beginPath(); ctx.ellipse(ogre.x, ogre.y, 40, 50, 0,0,Math.PI*2); ctx.fill();
-  }
-}
+// =====================================
+// Hammer Hit Detection
+// =====================================
+function checkHit() {
+    // Hammer head position
+    const hammerHitX = ogre.x + 160;
+    const hammerHitY = ogre.y + 190;
+    const hitRadius = 40;
 
-/* ------------------------
-   Main draw
-   ------------------------ */
-function draw(){
-  // background sky gradient already by canvas background CSS, draw ground
-  ctx.clearRect(0,0,canvas.width,canvas.height);
-  // ground strip
-  ctx.fillStyle = '#e8f6ea';
-  ctx.fillRect(0, 360, canvas.width, 160);
+    rocks.forEach(rock => {
+        const dx = hammerHitX - rock.x;
+        const dy = hammerHitY - rock.y;
+        const dist = Math.sqrt(dx*dx + dy*dy);
 
-  // top English target
-  ctx.fillStyle = '#000';
-  ctx.font = '28px sans-serif';
-  ctx.textAlign = 'center';
-  ctx.fillText(target ? target.english : '', canvas.width/2, 52);
-
-  // draw rocks
-  for (const r of choices) drawRock(r);
-
-  // draw ogre and hammer
-  drawOgreAndHammer();
-}
-
-/* ------------------------
-   Interaction & animation
-   ------------------------ */
-function findChoiceAt(x,y){
-  for (const c of choices){
-    const dx = x - c.x;
-    const dy = y - c.y;
-    if (dx*dx/(c.radiusX*c.radiusX) + dy*dy/(c.radiusY*c.radiusY) <= 1) return c;
-  }
-  return null;
-}
-
-// handle clicks
-canvas.addEventListener('click', (ev)=>{
-  const rect = canvas.getBoundingClientRect();
-  const mx = ev.clientX - rect.left;
-  const my = ev.clientY - rect.top;
-
-  // unlock sound on first gesture
-  unlockAudio();
-
-  const picked = findChoiceAt(mx,my);
-  if (!picked) return;
-
-  if (ogre.state !== 'idle') return; // ignore while busy
-
-  // set walking target x
-  ogre.targetX = picked.x;
-  ogre.state = 'walkingTo';
-  ogre.walkedToChoice = picked;
-});
-
-// audio unlock helper
-let audioUnlocked = false;
-function unlockAudio(){
-  if (audioUnlocked) return;
-  // try to play/pause both audio elements once to unlock
-  clack.play().then(()=>{ clack.pause(); clack.currentTime = 0; }).catch(()=>{});
-  wrong.play().then(()=>{ wrong.pause(); wrong.currentTime = 0; }).catch(()=>{});
-  audioUnlocked = true;
-}
-
-/* ------------------------
-   Game loop (requestAnimationFrame)
-   ------------------------ */
-function gameLoop(ts){
-  const dt = ts - (lastTime || ts);
-  lastTime = ts;
-
-  // update ogre states
-  if (ogre.state === 'walkingTo' && ogre.targetX != null){
-    const dx = ogre.targetX - ogre.x;
-    if (Math.abs(dx) < 6){
-      // arrived -> strike
-      ogre.state = 'striking';
-      // strike animation start time
-      ogre.strikeStart = performance.now();
-    } else {
-      const step = Math.sign(dx) * Math.min(Math.abs(dx), ogre.speed);
-      ogre.x += step;
-    }
-  } else if (ogre.state === 'striking'){
-    // compute strike progress
-    const elapsed = performance.now() - ogre.strikeStart;
-    const downTime = 650; // ms down
-    const upTime = 850; // ms up
-    const total = downTime + upTime;
-    if (elapsed < downTime){
-      const p = elapsed / downTime;
-      ogre.hammerAngle = -0.45 + easeIn(p) * (Math.PI*0.7); // rotate down
-      // slight lean
-      ogre.y = 330 + easeIn(p)*6;
-      if (!ogre.hitPlayed && p > 0.9){
-        // impact moment
-        ogre.hitPlayed = true;
-        const picked = ogre.walkedToChoice;
-        if (picked){
-          if (picked.correct){
-            // correct: clack sound, crack, increment score
-            try { clack.currentTime=0; clack.play(); } catch(e){}
-            picked.cracked = true;
-            picked.life = 1;
-            score++;
-            scoreEl.textContent = score;
-          } else {
-            try { wrong.currentTime=0; wrong.play(); } catch(e){}
-            // slight shake for wrong rock
-            picked.life = 0.6;
-            picked.cracked = false;
-          }
+        if (dist < hitRadius + rock.radius * 0.6) {
+            if (rock.isCorrect) {
+                clackSound.play();
+                pickNewWord();
+            } else {
+                rock.shake = 8;
+                setTimeout(() => rock.shake = 0, 350);
+            }
         }
-      }
-    } else if (elapsed < total){
-      const p = (elapsed - downTime) / upTime;
-      ogre.hammerAngle = -0.45 + (1 - easeOut(p)) * (Math.PI*0.7);
-      ogre.y = 330 + (1 - easeOut(p))*6;
-    } else {
-      // end strike
-      ogre.hammerAngle = -0.45;
-      ogre.y = 330;
-      ogre.state = 'returning';
-      ogre.hitPlayed = false;
-      // if correct, immediately next round after short delay
-      const picked = ogre.walkedToChoice;
-      if (picked && picked.correct){
-        setTimeout(()=>{ pickNewRound(); }, 500);
-      } else {
-        // return to idle
-        setTimeout(()=>{ ogre.state='idle'; ogre.walkedToChoice = null; }, 300);
-      }
-    }
-  } else if (ogre.state === 'returning'){
-    // move back to center slowly
-    const dx = canvas.width*0.5 - ogre.x;
-    if (Math.abs(dx) < 4) ogre.state = 'idle';
-    else ogre.x += Math.sign(dx) * Math.min(Math.abs(dx), ogre.speed*0.6);
-  } else if (ogre.state === 'idle'){
-    // gentle breathing idle (subtle)
-    const t = performance.now()/800;
-    ogre.y = 330 + Math.sin(t)*4;
-    // small idle hammer sway
-    ogre.hammerAngle = -0.45 + Math.sin(t/1.6)*0.02;
-  }
-
-  // animate any cracked rock growth
-  for (const r of choices){
-    if (r.cracked && r.life < 1) r.life += dt/400;
-    if (r.life > 1) r.life = 1;
-    // if wrong selection, short shakeness
-    if (!r.cracked && r.life < 1 && r.life > 0.2) r.life -= dt/800;
-  }
-
-  draw();
-  requestAnimationFrame(gameLoop);
+    });
 }
 
-/* ------------------------
-   Easing functions
-   ------------------------ */
-function easeIn(t){ return t*t; }
-function easeOut(t){ return 1 - Math.pow(1-t,2); }
+// =====================================
+// Animate Hammer
+// =====================================
+function smashHammer() {
+    if (hammerSmashing) return;
+    hammerSmashing = true;
 
-/* ------------------------
-   Restart & init
-   ------------------------ */
-restartBtn.addEventListener('click', ()=>{
-  score = 0; scoreEl.textContent = score;
-  pickNewRound();
-});
+    let step = 0;
 
-function ensureImagesLoaded(cb){
-  let a=0,need=2;
-  ogreImg.onload = ()=>{ a++; if (a>=need) cb(); };
-  hammerImg.onload = ()=>{ a++; if (a>=need) cb(); };
-  // if already loaded from cache:
-  if (ogreImg.complete) a++;
-  if (hammerImg.complete) a++;
-  if (a>=need) cb();
+    const smashInterval = setInterval(() => {
+        step++;
+
+        // swing down
+        if (step < 6) hammerAngle += 0.25;
+        // swing up
+        else hammerAngle -= 0.25;
+
+        if (step === 6) checkHit();
+
+        if (step >= 12) {
+            hammerAngle = 0;
+            hammerSmashing = false;
+            clearInterval(smashInterval);
+        }
+    }, 50);
 }
 
-ensureImagesLoaded(()=>{
-  pickNewRound();
-  requestAnimationFrame(gameLoop);
-});
+// =====================================
+// Mouse Click → Smash
+// =====================================
+canvas.addEventListener("click", smashHammer);
 
-// ensure unlock on first user gesture (some browsers require user gesture)
-document.addEventListener('click', unlockAudio, { once:true });
+// =====================================
+// Game Loop
+// =====================================
+function gameLoop() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // English word on top
+    ctx.fillStyle = "black";
+    ctx.font = "32px sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText(currentWord[0], canvas.width / 2, 60);
+
+    // Draw in this order:
+    drawOgre();   // behind
+    drawRocks();  // in front
+
+    requestAnimationFrame(gameLoop);
+}
+
+// =====================================
+pickNewWord();
+gameLoop();
+// =====================================
 
 </script>
 </body>
