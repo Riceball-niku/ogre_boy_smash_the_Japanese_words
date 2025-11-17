@@ -88,11 +88,16 @@ let roundTimer = null; // random respawn timer
    Assets (public/)
    ========================= */
 const ogreImg = new Image();
+ogreImg.src = '/public/ogre.png';
+
 const hammerImg = new Image();
+hammerImg.src = '/public/hammer.png';
+
 const rockImg = new Image();
-ogreImg.src = "ogre.png";
-hammerImg.src = "hammer.png";
-rockImg.src = "rock.png";
+rockImg.src = '/public/rock.png';
+
+const clackSound = new Audio('/public/clack.mp3');
+
 
 /* =========================
    Layout & State
