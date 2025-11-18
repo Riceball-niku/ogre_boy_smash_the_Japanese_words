@@ -3,43 +3,91 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Ogre Smash — 2-frame walk</title>
+<title>Ogre Smash Game</title>
+
 <style>
-  :root{--w:960px;--h:600px}
-  body{margin:0;background:#e9f5ff;font-family:system-ui, "Noto Sans JP", "Hiragino Kaku Gothic ProN", "Yu Gothic", Arial;display:flex;flex-direction:column;align-items:center;padding:18px}
-  .wrap{width:var(--w);max-width:98%;position:relative}
-  canvas{width:100%;height:auto;border-radius:12px;background:linear-gradient(#bfe6ff,#eaf7ff);box-shadow:0 10px 30px rgba(0,0,0,0.12);display:block}
-  .hud{display:flex;align-items:center;gap:12px;margin-top:10px;width:var(--w);max-width:98%}
-  .score,.timer{font-size:18px}
-  .btn{background:#2e8b57;color:#fff;border:0;padding:8px 12px;border-radius:8px;cursor:pointer}
-  .credit{font-size:13px;color:#333;margin-top:8px}
-  .center-msg{position:absolute;left:50%;transform:translateX(-50%);top:36%;background:rgba(255,255,255,0.95);padding:16px 20px;border-radius:10px;box-shadow:0 8px 20px rgba(0,0,0,0.12);display:none}
+  body {
+    margin:0;
+    background:#e9f5ff;
+    font-family: "Noto Sans JP","Hiragino Kaku Gothic ProN","Yu Gothic",sans-serif;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    padding:20px;
+  }
+
+  canvas {
+    width:960px;
+    max-width:98%;
+    height:auto;
+    background:linear-gradient(#bfe6ff,#e7f6ff);
+    border-radius:10px;
+    box-shadow:0 10px 25px rgba(0,0,0,0.12);
+  }
+
+  .hud {
+    margin-top:10px;
+    display:flex;
+    align-items:center;
+    gap:15px;
+    width:960px;
+    max-width:98%;
+  }
+
+  .btn {
+    background:#2e8b57;
+    color:white;
+    padding:8px 12px;
+    border:none;
+    border-radius:7px;
+    cursor:pointer;
+  }
+
+  .credit {
+    font-size:13px;
+    margin-top:8px;
+    color:#444;
+  }
+
+  .center-msg {
+    position:absolute;
+    top:40%;
+    left:50%;
+    transform:translateX(-50%);
+    background:white;
+    padding:20px;
+    border-radius:10px;
+    box-shadow:0 10px 25px rgba(0,0,0,0.15);
+    display:none;
+    width:260px;
+    text-align:center;
+  }
 </style>
 </head>
+
 <body>
-  <div class="wrap">
-    <canvas id="game" width="960" height="600"></canvas>
-    <div class="center-msg" id="endMessage" role="dialog" aria-live="polite"></div>
-  </div>
 
-  <div class="hud">
-    <div class="score">Score: <strong id="score">0</strong></div>
-    <div class="timer">Time: <strong id="time">60</strong>s</div>
-    <button id="restart" class="btn">Restart</button>
-    <div style="flex:1"></div>
-    <div style="font-size:13px;color:#444">Click a rock → Ogre walks there and smashes.</div>
-  </div>
+<canvas id="game" width="960" height="600"></canvas>
+<div id="endMessage" class="center-msg"></div>
 
-  <div class="credit">Images by Vecteezy — attribution required.</div>
+<div class="hud">
+  <div>Score: <strong id="score">0</strong></div>
+  <div>Time: <strong id="time">60</strong>s</div>
+  <button id="restart" class="btn">Restart</button>
+  <div style="flex:1"></div>
+  <div style="font-size:13px;color:#555;">Click a rock → Ogre walks & smashes.</div>
+</div>
 
-  <!-- audio -->
-  <audio id="clack" preload="auto"><source src="clack.mp3" type="audio/mpeg"></audio>
-  <audio id="wrong" preload="auto"><source src="https://actions.google.com/sounds/v1/cartoon/clang_and_wobble.ogg" type="audio/ogg"></audio>
+<div class="credit">Ogre + hammer images by Vecteezy</div>
+
+<!-- Audio -->
+<audio id="clack" src="clack.mp3" preload="auto"></audio>
+<audio id="wrong" src="https://actions.google.com/sounds/v1/cartoon/clang_and_wobble.ogg" preload="auto"></audio>
 
 <script>
-/* ====================
-   Config & Words
-   ==================== */
+/* =======================
+   WORD DATA
+======================= */
 const WORDS = [
   {english:"cow", kanji:"牛", kana:"うし"},
   {english:"horse", kanji:"馬", kana:"うま"},
@@ -61,306 +109,225 @@ const WORDS = [
   {english:"bird", kanji:"鳥", kana:"とり"}
 ];
 
-const canvas = document.getElementById('game');
-const ctx = canvas.getContext('2d');
-const scoreEl = document.getElementById('score');
-const timeEl = document.getElementById('time');
-const restartBtn = document.getElementById('restart');
-const endMessage = document.getElementById('endMessage');
+/* =======================
+   CANVAS SETUP
+======================= */
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
 
-const clackAudio = document.getElementById('clack');
-const wrongAudio = document.getElementById('wrong');
+const scoreEl = document.getElementById("score");
+const timeEl = document.getElementById("time");
+const restartBtn = document.getElementById("restart");
+const endMsg = document.getElementById("endMessage");
 
-/* ====================
-   Assets (public/)
-   Put ogre.png, hammer.png, rock.png, clack.mp3 into /public
-   Vercel serves them at root paths (ogre.png etc.)
-   ==================== */
+const clack = document.getElementById("clack");
+const wrong = document.getElementById("wrong");
+
+/* =======================
+   ASSETS (same folder)
+======================= */
 const ogreImg = new Image();
-ogreImg.src = 'ogre.png';
-
 const hammerImg = new Image();
-hammerImg.src = 'hammer.png';
-
 const rockImg = new Image();
-rockImg.src = 'rock.png';
 
-const clackSound = new Audio('clack.mp3');
+ogreImg.src = "ogre.png";
+hammerImg.src = "hammer.png";
+rockImg.src = "rock.png";
 
-
-/* ====================
-   Layout & state
-   ==================== */
-const CHOICES = 4;
-const START_X = 140;    // left side (user chose B: left)
+/* =======================
+   GAME STATE
+======================= */
+const START_X = 140;
 const START_Y = 330;
-const OGRE_W = 220, OGRE_H = 220;
 
-let score = 0;
-let timeLeft = 60;
-let gameTimer = null, roundTimer = null;
-let gameRunning = false;
-
-let ogre = { x: START_X, y: START_Y, angle: -0.45 }; // angle controls hammer rotation
-let walkPhase = 0; // 0 or 1 for 2-frame walk
-let walkTicker = null;
-
+let ogre = { x: START_X, y: START_Y, angle: -0.45 };
 let targetWord = null;
-let rocks = []; // rock objects {kanji,kana,x,y,radiusX,radiusY,isCorrect,crack,shake}
+let rocks = [];
+let score = 0;
 
-/* ====================
-   Helpers
-   ==================== */
-function randInt(n){ return Math.floor(Math.random()*n); }
-function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } }
+let moving = false;
+let audioUnlocked = false;
 
-/* ====================
-   New round: pick words + positions
-   ==================== */
-function newRoundImmediate(){
-  targetWord = WORDS[randInt(WORDS.length)];
-  const pool = WORDS.filter(w=>w!==targetWord);
+/* =======================
+   HELPERS
+======================= */
+function shuffle(a){
+  for(let i=a.length-1;i>0;i--){
+    const j = Math.floor(Math.random()*(i+1));
+    [a[i],a[j]] = [a[j],a[i]];
+  }
+}
+
+function rand(n){ return Math.floor(Math.random()*n); }
+
+/* =======================
+   NEW ROUND
+======================= */
+function makeNewRound(){
+  targetWord = WORDS[rand(WORDS.length)];
+
+  const pool = WORDS.filter(w => w !== targetWord);
   shuffle(pool);
-  const distractors = pool.slice(0, CHOICES-1);
-  const set = [targetWord, ...distractors];
-  shuffle(set);
+  const choices = [targetWord, ...pool.slice(0,3)];
+  shuffle(choices);
 
-  // position rocks across play area (avoid left where ogre stands)
   const left = 320;
-  const right = canvas.width - 140;
-  rocks = set.map((w,i)=>{
-    return {
-      kanji: w.kanji || "",
-      kana: w.kana || "",
-      english: w.english,
-      x: left + i * ((right-left)/(CHOICES-1)),
-      y: 420,
-      radiusX: 72,
-      radiusY: 36,
-      isCorrect: w===targetWord,
-      crack: 0,
-      shake: 0
-    };
-  });
+  const right = 820;
 
-  // schedule unpredictable respawn (2-5s)
-  if (roundTimer) clearTimeout(roundTimer);
-  const delay = 2000 + Math.floor(Math.random()*3000);
-  roundTimer = setTimeout(()=> newRoundImmediate(), delay);
+  rocks = choices.map((w,i)=>({
+    english:w.english,
+    kanji:w.kanji,
+    kana:w.kana,
+    isCorrect:w===targetWord,
+    x: left + i*((right-left)/3),
+    y: 430,
+    radiusX:70,
+    radiusY:40,
+    crack:0,
+    shake:0
+  }));
 }
 
-/* ====================
-   Drawing
-   ==================== */
-function drawBackground(){
-  ctx.clearRect(0,0,canvas.width,canvas.height);
-  ctx.fillStyle = '#e8f6ea';
-  ctx.fillRect(0, 380, canvas.width, canvas.height-380);
-}
+/* =======================
+   DRAW
+======================= */
+function draw(){
+  ctx.clearRect(0,0,960,600);
 
-function drawRocks(){
-  rocks.forEach(r=>{
-    // apply small horizontal shake
-    const sx = (r.shake>0) ? Math.sin(Date.now()/60)*4*r.shake : 0;
+  // ground
+  ctx.fillStyle = "#dbf0d6";
+  ctx.fillRect(0,380,960,220);
 
-    // shadow
-    ctx.fillStyle = 'rgba(0,0,0,0.12)';
-    ctx.beginPath();
-    ctx.ellipse(r.x+sx, r.y+18, r.radiusX*0.9, r.radiusY*0.6, 0,0,Math.PI*2);
-    ctx.fill();
+  drawOgre();
+  drawRocks();
+  drawHammer();
 
-    // rock gradient
-    const grad = ctx.createLinearGradient(r.x - r.radiusX, r.y - r.radiusY, r.x + r.radiusX, r.y + r.radiusY);
-    grad.addColorStop(0,'#d9d9d9'); grad.addColorStop(0.5,'#c4c4c4'); grad.addColorStop(1,'#b5b5b5');
-    ctx.fillStyle = grad;
-    ctx.beginPath();
-    ctx.ellipse(r.x+sx, r.y, r.radiusX, r.radiusY, 0,0,Math.PI*2);
-    ctx.fill();
-
-    // speckles
-    ctx.fillStyle='rgba(0,0,0,0.06)';
-    for(let i=0;i<10;i++){ ctx.beginPath(); ctx.arc(r.x - r.radiusX + Math.random()*(2*r.radiusX) + sx, r.y - r.radiusY + Math.random()*(2*r.radiusY), 1, 0, Math.PI*2); ctx.fill(); }
-
-    // crack
-    if (r.crack>0){
-      ctx.strokeStyle = '#5d3b2a'; ctx.lineWidth=2;
-      ctx.beginPath();
-      ctx.moveTo(r.x-8+sx, r.y-2);
-      ctx.lineTo(r.x-8 + 24*r.crack + sx, r.y + 8*r.crack);
-      ctx.lineTo(r.x + 6*r.crack + sx, r.y + 20*r.crack);
-      ctx.stroke();
-    }
-
-    // text (kanji big, kana small underneath; if no kanji show only kana)
-    ctx.fillStyle='#000'; ctx.textAlign='center';
-    if (r.kanji && r.kanji.trim()!==""){
-      ctx.font = '26px "Hiragino Kaku Gothic ProN", "Yu Gothic", "Noto Sans JP", sans-serif';
-      ctx.fillText(r.kanji, r.x+sx, r.y - 6);
-      ctx.font = '14px "Hiragino Kaku Gothic ProN", "Yu Gothic", "Noto Sans JP", sans-serif';
-      ctx.fillText(r.kana, r.x+sx, r.y + 18);
-    } else {
-      ctx.font = '26px "Hiragino Kaku Gothic ProN", "Yu Gothic", "Noto Sans JP", sans-serif';
-      ctx.fillText(r.kana, r.x+sx, r.y + 6);
-    }
-  });
+  // English word
+  ctx.fillStyle="#000";
+  ctx.font="30px sans-serif";
+  ctx.textAlign="center";
+  if (targetWord)
+    ctx.fillText(targetWord.english, 480, 50);
 }
 
 function drawOgre(){
-  // 2-frame cartoon walk: toggle small offsets when moving
-  let offsetX = 0, offsetY = 0, tilt = 0;
-  if (moving){
-    if (walkPhase === 0){ offsetX = -2; offsetY = 2; tilt = -0.03; }
-    else { offsetX = 2; offsetY = -1; tilt = 0.03; }
-  }
-  const ox = ogre.x + offsetX;
-  const oy = ogre.y + offsetY;
+  if (!ogreImg.complete) return;
 
-  // draw ogre behind rocks
-  if (ogreImg.complete && ogreImg.naturalWidth){
-    ctx.save();
-    // center ogre
-    ctx.translate(ox, oy);
-    ctx.rotate(tilt);
-    ctx.drawImage(ogreImg, -OGRE_W*0.5, -OGRE_H*0.5, OGRE_W, OGRE_H);
-    ctx.restore();
-  } else {
-    ctx.fillStyle='#6db24a';
-    ctx.beginPath(); ctx.ellipse(ogre.x, ogre.y, 40,50,0,0,Math.PI*2); ctx.fill();
-  }
+  ctx.save();
+  ctx.translate(ogre.x, ogre.y);
+  ctx.drawImage(ogreImg, -110, -110, 220, 220);
+  ctx.restore();
 }
 
 function drawHammer(){
-  // pivot coordinates relative to ogre
-  const pivotX = ogre.x - OGRE_W*0.5 + OGRE_W * 0.65;
-  const pivotY = ogre.y - OGRE_H*0.5 + OGRE_H * 0.63;
+  if (!hammerImg.complete) return;
+
+  const pivotX = ogre.x + 65;
+  const pivotY = ogre.y + 40;
+
   ctx.save();
   ctx.translate(pivotX, pivotY);
   ctx.rotate(ogre.angle);
   ctx.translate(-pivotX, -pivotY);
-  const hx = pivotX - 45;
-  const hy = pivotY - 95;
-  if (hammerImg.complete && hammerImg.naturalWidth) ctx.drawImage(hammerImg, hx, hy, 160, 160);
+  ctx.drawImage(hammerImg, pivotX-60, pivotY-120, 150,150);
   ctx.restore();
 }
 
-function drawUI(){
-  ctx.fillStyle='#000'; ctx.font='28px sans-serif'; ctx.textAlign='center';
-  ctx.fillText(targetWord ? targetWord.english : '', canvas.width/2, 50);
+function drawRocks(){
+  rocks.forEach(r=>{
+    const sx = (r.shake>0)? Math.sin(Date.now()/50)*3*r.shake : 0;
+
+    // shadow
+    ctx.fillStyle="rgba(0,0,0,0.15)";
+    ctx.beginPath();
+    ctx.ellipse(r.x+sx, r.y+20, r.radiusX, r.radiusY*0.7,0,0,Math.PI*2);
+    ctx.fill();
+
+    // rock
+    ctx.drawImage(rockImg, r.x-80+sx, r.y-60, 160,120);
+
+    // text
+    ctx.fillStyle="#000";
+    ctx.textAlign="center";
+
+    if (r.kanji){
+      ctx.font="28px 'Noto Sans JP'";
+      ctx.fillText(r.kanji, r.x+sx, r.y-5);
+
+      ctx.font="14px 'Noto Sans JP'";
+      ctx.fillText(r.kana, r.x+sx, r.y+20);
+    } else {
+      ctx.font="26px 'Noto Sans JP'";
+      ctx.fillText(r.kana, r.x+sx, r.y+8);
+    }
+  });
 }
 
-/* ====================
-   Main loop
-   ==================== */
-let last = 0;
-function loop(ts){
-  if (!last) last = ts;
-  const dt = ts - last; last = ts;
-
-  drawBackground();
-  // draw in order: ogre behind rocks, rocks, hammer in front so swing overlays rocks
-  drawOgre();
-  drawRocks();
-  drawHammer();
-  drawUI();
-
-  // update shakes and crack growth
-  for (const r of rocks){
-    if (r.shake > 0) r.shake = Math.max(0, r.shake - dt/120);
-    if (r.crack>0 && r.crack<1) r.crack = Math.min(1, r.crack + dt/400);
-  }
-
-  requestAnimationFrame(loop);
-}
-
-/* ====================
-   Movement & smash logic
-   ==================== */
-let moving = false;
-let moveStart = 0, moveDuration = 1000; // 1s travel
-let moveFromX = 0, moveToX = 0;
-let moveTarget = null;
-
-function startWalkTicker(){
-  if (walkTicker) return;
-  walkTicker = setInterval(()=>{ walkPhase = 1 - walkPhase; }, 200); // toggle every 200ms (2-frame)
-}
-
-function stopWalkTicker(){
-  if (!walkTicker) return;
-  clearInterval(walkTicker); walkTicker = null; walkPhase = 0;
-}
-
-function moveOgreToRock(r){
+/* =======================
+   MOVEMENT + SMASH
+======================= */
+function moveToRock(r){
   if (moving) return;
   moving = true;
-  startWalkTicker();
-  moveStart = performance.now();
-  moveFromX = ogre.x;
-  moveToX = Math.max(START_X, r.x - 20); // stop a bit left so hammer aligns
-  moveTarget = r;
-  // temporarily cancel respawn
-  if (roundTimer){ clearTimeout(roundTimer); roundTimer = null; }
-  requestAnimationFrame(stepMovement);
-}
 
-function stepMovement(ts){
-  const elapsed = ts - moveStart;
-  const t = Math.min(1, elapsed / moveDuration);
-  // easeInOutQuad
-  const eased = t<0.5 ? 2*t*t : -1 + (4-2*t)*t;
-  ogre.x = moveFromX + (moveToX - moveFromX) * eased;
-  ogre.y = START_Y + Math.sin(eased * Math.PI) * 6;
-
-  if (t < 1){
-    requestAnimationFrame(stepMovement);
-  } else {
-    // arrived - stop walking ticker and perform smash
-    stopWalkTicker();
-    moving = false;
-    performSmash(moveTarget);
-  }
-}
-
-function performSmash(r){
-  // hammer swing: down then up (timestamps)
-  const down = 550, up = 700;
   const start = performance.now();
-  let hitPlayed = false;
+  const from = ogre.x;
+  const to = r.x - 40;
+  const duration = 900;
+
+  function anim(ts){
+    let t = (ts - start)/duration;
+    if (t>1) t=1;
+
+    ogre.x = from + (to-from)*t;
+    ogre.y = START_Y + Math.sin(t*Math.PI)*8;
+
+    if (t<1){
+      requestAnimationFrame(anim);
+    } else {
+      smash(r);
+    }
+  }
+  requestAnimationFrame(anim);
+}
+
+function smash(r){
+  const down = 300, up = 400;
+  const t0 = performance.now();
+  let played = false;
 
   function anim(){
     const now = performance.now();
-    const elapsed = now - start;
-    if (elapsed < down){
-      const p = elapsed / down;
-      ogre.angle = -0.45 + p*p * Math.PI*0.72; // rotate down
-      // small lean
-      ogre.y = START_Y + p*8;
-    } else if (elapsed < down + up){
-      const p = (elapsed - down)/up;
-      ogre.angle = -0.45 + (1 - (1-p)*(1-p)) * Math.PI*0.72; // easing up
-      ogre.y = START_Y + (1 - p)*8;
-      if (!hitPlayed){
-        // impact
-        hitPlayed = true;
+    const t = now - t0;
+
+    if (t < down){
+      ogre.angle = -0.45 + (t/down)*1.2;
+    }
+    else if (t < down+up){
+      ogre.angle = 0.75 - ((t-down)/up)*1.2;
+
+      if (!played){
+        played = true;
+
         if (r.isCorrect){
-          try{ clackAudio.currentTime = 0; clackAudio.play(); }catch(e){}
-          r.crack = 0.001;
-          score++; scoreEl.textContent = score;
+          clack.currentTime = 0;
+          clack.play();
+          score++;
+          scoreEl.textContent = score;
+          r.crack = 1;
         } else {
-          try{ wrongAudio.currentTime = 0; wrongAudio.play(); }catch(e){}
-          r.shake = 8;
+          wrong.currentTime = 0;
+          wrong.play();
+          r.shake = 1;
         }
       }
-    } else {
-      // finish
+    }
+    else {
       ogre.angle = -0.45;
-      ogre.y = START_Y;
-      // if correct, quick new round; if wrong return home then allow next
+      moving = false;
+
       if (r.isCorrect){
-        setTimeout(()=> newRoundImmediate(), 500);
-      } else {
-        // return to start
-        smoothReturnHome();
+        setTimeout(makeNewRound, 500);
       }
       return;
     }
@@ -369,103 +336,88 @@ function performSmash(r){
   requestAnimationFrame(anim);
 }
 
-function smoothReturnHome(){
-  const from = ogre.x;
-  const to = START_X;
-  const dur = 900;
-  const s = performance.now();
-  function anim(){
-    const now = performance.now();
-    const t = Math.min(1, (now - s)/dur);
-    const eased = t<0.5 ? 2*t*t : -1 + (4-2*t)*t;
-    ogre.x = from + (to - from)*eased;
-    if (t < 1) requestAnimationFrame(anim);
-    else ogre.x = to;
-  }
-  requestAnimationFrame(anim);
-}
-
-/* ====================
-   Click handling
-   ==================== */
-canvas.addEventListener('click', (ev)=>{
+/* =======================
+   CLICK
+======================= */
+canvas.addEventListener("click", e=>{
   unlockAudio();
-  const rect = canvas.getBoundingClientRect();
-  const mx = ev.clientX - rect.left;
-  const my = ev.clientY - rect.top;
 
-  // check rocks
-  for (const r of rocks){
-    const dx = mx - r.x;
-    const dy = my - r.y;
-    if (dx*dx/(r.radiusX*r.radiusX) + dy*dy/(r.radiusY*r.radiusY) <= 1){
-      moveOgreToRock(r);
+  const r = canvas.getBoundingClientRect();
+  const mx = e.clientX - r.left;
+  const my = e.clientY - r.top;
+
+  for (const rock of rocks){
+    const dx = mx - rock.x;
+    const dy = my - rock.y;
+    if ( (dx*dx)/(rock.radiusX*rock.radiusX) + (dy*dy)/(rock.radiusY*rock.radiusY) <= 1 ){
+      moveToRock(rock);
       return;
     }
   }
 });
 
-/* ====================
-   Audio unlock
-   ==================== */
-let audioUnlocked = false;
+/* =======================
+   AUDIO UNLOCK FIX
+======================= */
 function unlockAudio(){
   if (audioUnlocked) return;
-  clackAudio.play().then(()=>{ clackAudio.pause(); clackAudio.currentTime=0; }).catch(()=>{});
-  wrongAudio.play().then(()=>{ wrongAudio.pause(); wrongAudio.currentTime=0; }).catch(()=>{});
+  clack.play().catch(()=>{});
+  wrong.play().catch(()=>{});
+  clack.pause(); wrong.pause();
+  clack.currentTime=0; wrong.currentTime=0;
   audioUnlocked = true;
 }
 
-/* ====================
-   Timer & game control
-   ==================== */
+/* =======================
+   TIMER
+======================= */
+let timeLeft = 60;
+let timer = null;
+
 function startGame(){
-  score = 0; scoreEl.textContent = score;
-  timeLeft = 60; timeEl.textContent = timeLeft;
-  gameRunning = true;
-  newRoundImmediate();
-  if (gameTimer) clearInterval(gameTimer);
-  gameTimer = setInterval(()=>{
+  score = 0;
+  scoreEl.textContent = 0;
+  timeLeft = 60;
+  timeEl.textContent = 60;
+
+  makeNewRound();
+
+  if (timer) clearInterval(timer);
+  timer = setInterval(()=>{
     timeLeft--;
     timeEl.textContent = timeLeft;
-    if (timeLeft <= 0){ clearInterval(gameTimer); endGame(); }
-  }, 1000);
+    if (timeLeft<=0){
+      clearInterval(timer);
+      endGame();
+    }
+  },1000);
 }
 
 function endGame(){
-  gameRunning = false;
-  if (roundTimer) clearTimeout(roundTimer);
-  if (walkTicker) stopWalkTicker();
-  // show modal
-  endMessage.style.display = 'block';
-  endMessage.innerHTML = `<h3>Time's up!</h3><p>Your score: <strong>${score}</strong></p><p>Nice work!</p><button id="again" class="btn">Play again</button>`;
-  document.getElementById('again').addEventListener('click', ()=>{
-    endMessage.style.display='none';
+  endMsg.style.display="block";
+  endMsg.innerHTML = `
+    <h3>Time's Up!</h3>
+    <p>Your score: <strong>${score}</strong></p>
+    <button id="againBtn" class="btn">Play Again</button>
+  `;
+  document.getElementById("againBtn").onclick=()=>{
+    endMsg.style.display="none";
     startGame();
-  });
+  };
 }
 
-restartBtn.addEventListener('click', ()=>{
-  if (gameTimer) clearInterval(gameTimer);
-  if (roundTimer) clearTimeout(roundTimer);
-  endMessage.style.display = 'none';
-  startGame();
-});
+restartBtn.onclick = startGame;
 
-/* ====================
-   Start up
-   ==================== */
-function ensureImages(cb){
-  let need=3, got=0;
-  function tick(){ got++; if (got>=need) cb(); }
-  if (ogreImg.complete) tick(); else ogreImg.onload = tick;
-  if (hammerImg.complete) tick(); else hammerImg.onload = tick;
-  if (rockImg.complete) tick(); else rockImg.onload = tick;
-}
-ensureImages(()=>{
+/* =======================
+   MAIN LOOP
+======================= */
+function loop(){
+  draw();
   requestAnimationFrame(loop);
-  startGame();
-});
+}
+
+requestAnimationFrame(loop);
+startGame();
 </script>
 </body>
 </html>
