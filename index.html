@@ -76,9 +76,17 @@ const wrongAudio = document.getElementById('wrong');
    Put ogre.png, hammer.png, rock.png, clack.mp3 into /public
    Vercel serves them at root paths (ogre.png etc.)
    ==================== */
-const ogreImg = new Image(); ogreImg.src = 'ogre.png';
-const hammerImg = new Image(); hammerImg.src = 'hammer.png';
-const rockImg = new Image(); rockImg.src = 'rock.png';
+const ogreImg = new Image();
+ogreImg.src = 'ogre.png';
+
+const hammerImg = new Image();
+hammerImg.src = 'hammer.png';
+
+const rockImg = new Image();
+rockImg.src = 'rock.png';
+
+const clackSound = new Audio('clack.mp3');
+
 
 /* ====================
    Layout & state
